@@ -69,6 +69,12 @@ task wrapper(type: Wrapper) {
     gradleVersion = '1.9'
 }
 
+task migrateDb(dependsOn: 'classes', type: JavaExec) {
+    main = mainClass
+    classpath = sourceSets.main.runtimeClasspath
+    args 'db', 'migrate', 'app.yml'
+}
+
 task run(dependsOn: 'classes', type: JavaExec) {
     main = mainClass
     classpath = sourceSets.main.runtimeClasspath
