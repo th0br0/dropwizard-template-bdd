@@ -1,0 +1,103 @@
+import org.apache.tools.ant.taskdefs.condition.Os
+import java.text.SimpleDateFormat
+import com.github.jengelman.gradle.plugins.shadow.transformers.ManifestResourceTransformer
+import com.github.jengelman.gradle.plugins.shadow.transformers.ServiceFileTransformer
+
+buildscript {
+    repositories {
+        jcenter()
+        mavenCentral()
+    }
+    dependencies {
+		classpath 'com.github.jengelman.gradle.plugins:shadow:0.8'
+    }
+}
+
+apply plugin: 'java'
+apply plugin: 'idea'
+apply plugin: 'shadow' 
+
+sourceCompatibility = 1.7
+targetCompatibility = 1.7
+
+
+repositories {
+    mavenCentral()
+    jcenter()
+}
+
+project.ext {
+    release = new SimpleDateFormat("yyyyMMddHHmmss").format(new Date())
+    jarBase = "$name-$release"
+    shadowJarName = "$jarBase-$version-shadow.jar"
+    mainClass = 'com.example.helloworld.HelloWorldApplication'
+    destinationPath = "${project.buildDir}/distributions"
+}
+
+dependencies {
+	compile (
+		"io.dropwizard:dropwizard-core:$dropwizardVersion",
+		"io.dropwizard:dropwizard-hibernate:$dropwizardVersion",
+		"io.dropwizard:dropwizard-assets:$dropwizardVersion",
+		"io.dropwizard:dropwizard-auth:$dropwizardVersion",
+		"io.dropwizard:dropwizard-views:$dropwizardVersion",
+		"io.dropwizard:dropwizard-migrations:$dropwizardVersion"
+	)
+	
+	compile "com.h2database:h2:1.3.175"
+}
+
+
+jar {
+    manifest {
+        attributes 'Main-Class': mainClass
+        attributes 'Implementation-Title': "$name" ,'Implementation-Version': version
+    }
+}
+
+shadow {
+  baseName jarBase
+  destinationDir destinationPath
+
+  transformer(ServiceFileTransformer)
+
+  exclude 'META-INF/*.DSA'
+  exclude 'META-INF/*.RSA'
+}
+
+task wrapper(type: Wrapper) {
+    gradleVersion = '1.9'
+}
+
+task run(dependsOn: 'classes', type: JavaExec) {
+    main = mainClass
+    classpath = sourceSets.main.runtimeClasspath
+    args 'server','app.yml'
+}
+
+task runShadow(type:Exec, dependsOn: 'shadowJar') {
+    workingDir = "build/distributions"
+    commandLine = ['java', '-jar', '-server', shadowJarName,'server','../../app.yml']
+}
+
+task bdd(type: Exec, dependsOn: 'shadowJar') {
+    description = "Tests BDDs against the running application"
+    
+    commandLine = ['cucumber']
+
+    workingDir = "./src/test/resources/bdd" 
+    def oneJarProcess = null
+
+    doFirst{
+        println "Starting application on separate thread..."
+        Thread.startDaemon {
+            oneJarProcess = "java -jar -server $destinationPath/$shadowJarName server app.yml".execute()
+        }
+        println "Waiting for application to start before executing tests..."
+        addShutdownHook {
+            println "Shutting down application"
+            oneJarProcess.destroy()
+        }
+    }
+
+}
