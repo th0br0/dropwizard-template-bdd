@@ -1,7 +1,6 @@
-import org.apache.tools.ant.taskdefs.condition.Os
-import java.text.SimpleDateFormat
-import com.github.jengelman.gradle.plugins.shadow.transformers.ManifestResourceTransformer
 import com.github.jengelman.gradle.plugins.shadow.transformers.ServiceFileTransformer
+
+import java.text.SimpleDateFormat
 
 buildscript {
     repositories {
@@ -9,13 +8,13 @@ buildscript {
         mavenCentral()
     }
     dependencies {
-		classpath 'com.github.jengelman.gradle.plugins:shadow:0.8'
+        classpath 'com.github.jengelman.gradle.plugins:shadow:0.8'
     }
 }
 
 apply plugin: 'java'
 apply plugin: 'idea'
-apply plugin: 'shadow' 
+apply plugin: 'shadow'
 
 sourceCompatibility = 1.7
 targetCompatibility = 1.7
@@ -35,34 +34,42 @@ project.ext {
 }
 
 dependencies {
-	compile (
-		"io.dropwizard:dropwizard-core:$dropwizardVersion",
-		"io.dropwizard:dropwizard-hibernate:$dropwizardVersion",
-		"io.dropwizard:dropwizard-assets:$dropwizardVersion",
-		"io.dropwizard:dropwizard-auth:$dropwizardVersion",
-		"io.dropwizard:dropwizard-views:$dropwizardVersion",
-		"io.dropwizard:dropwizard-migrations:$dropwizardVersion"
-	)
-	
-	compile "com.h2database:h2:1.3.175"
+    compile(
+            "io.dropwizard:dropwizard-core:$dropwizardVersion",
+            "io.dropwizard:dropwizard-hibernate:$dropwizardVersion",
+            "io.dropwizard:dropwizard-assets:$dropwizardVersion",
+            "io.dropwizard:dropwizard-auth:$dropwizardVersion",
+            "io.dropwizard:dropwizard-views:$dropwizardVersion",
+            "io.dropwizard:dropwizard-migrations:$dropwizardVersion"
+    )
+
+    compile "com.h2database:h2:1.3.175"
+
+    // IntelliJ doesn't like the src/cucumber path...
+    testCompile "io.dropwizard:dropwizard-testing:$dropwizardVersion"
+    testCompile "info.cukes:cucumber-java:$cucumberVersion"
+    testCompile "info.cukes:cucumber-junit:$cucumberVersion"
+    testCompile "junit:junit:4.10"
+    testCompile 'com.jayway.restassured:rest-assured:2.3.0'
+
 }
 
 
 jar {
     manifest {
         attributes 'Main-Class': mainClass
-        attributes 'Implementation-Title': "$name" ,'Implementation-Version': version
+        attributes 'Implementation-Title': "$name", 'Implementation-Version': version
     }
 }
 
 shadow {
-  baseName jarBase
-  destinationDir destinationPath
+    baseName jarBase
+    destinationDir destinationPath
 
-  transformer(ServiceFileTransformer)
+    transformer(ServiceFileTransformer)
 
-  exclude 'META-INF/*.DSA'
-  exclude 'META-INF/*.RSA'
+    exclude 'META-INF/*.DSA'
+    exclude 'META-INF/*.RSA'
 }
 
 task wrapper(type: Wrapper) {
@@ -78,32 +85,10 @@ task migrateDb(dependsOn: 'classes', type: JavaExec) {
 task run(dependsOn: 'classes', type: JavaExec) {
     main = mainClass
     classpath = sourceSets.main.runtimeClasspath
-    args 'server','app.yml'
+    args 'server', 'app.yml'
 }
 
-task runShadow(type:Exec, dependsOn: 'shadowJar') {
+task runShadow(type: Exec, dependsOn: 'shadowJar') {
     workingDir = "build/distributions"
-    commandLine = ['java', '-jar', '-server', shadowJarName,'server','../../app.yml']
-}
-
-task bdd(type: Exec, dependsOn: 'shadowJar') {
-    description = "Tests BDDs against the running application"
-    
-    commandLine = ['cucumber']
-
-    workingDir = "./src/test/resources/bdd" 
-    def oneJarProcess = null
-
-    doFirst{
-        println "Starting application on separate thread..."
-        Thread.startDaemon {
-            oneJarProcess = "java -jar -server $destinationPath/$shadowJarName server app.yml".execute()
-        }
-        println "Waiting for application to start before executing tests..."
-        addShutdownHook {
-            println "Shutting down application"
-            oneJarProcess.destroy()
-        }
-    }
-
+    commandLine = ['java', '-jar', '-server', shadowJarName, 'server', '../../app.yml']
 }
