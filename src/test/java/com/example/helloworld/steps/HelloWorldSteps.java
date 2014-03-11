@@ -21,16 +21,13 @@ public class HelloWorldSteps {
     }
 
 
-    @When("^I say hello, I'm \"([^\"]*)\"$")
+    @When("^I say hello, I'm ([^\"]*)$")
     public void sayHello(String name) throws Throwable {
         response = helloWorldSupport.sayHelloWorld(name);
     }
 
     @Then("^I expect a response of \"([^\"]*)\"$")
     public void expectResponse(String expectedResponse) throws Throwable {
-        System.out.println(response);
-        System.out.println(expectedResponse);
-
         assertThat(response, is(expectedResponse));
 
     }
